@@ -432,7 +432,8 @@ def convert_to_m3u(path=None, first_channel_name=None, data=None):
                                           + ("+" if m.group(3) else ""),
                                 use_name,
                             )
-                        m3u_output += f'#EXTINF:-1 tvg-name="{processed_channel_name}" tvg-logo="{join_url(logo_url, f'{processed_channel_name}.{config.logo_type}')}"'
+                        logo_path = join_url(logo_url, f"{processed_channel_name}.{config.logo_type}")
+                        m3u_output += f'#EXTINF:-1 tvg-name="{processed_channel_name}" tvg-logo="{logo_path}"'
                         if current_group:
                             m3u_output += f' group-title="{current_group}"'
                         item_data = {}
@@ -457,6 +458,88 @@ def convert_to_m3u(path=None, first_channel_name=None, data=None):
             m3u_file_path = os.path.splitext(path)[0] + ".m3u"
             with open(m3u_file_path, "w", encoding="utf-8") as m3u_file:
                 m3u_file.write(m3u_output)
+
+
+def merge_m3u_duplicate_channels(m3u_path: str):
+    """
+    Merge duplicate channel entries in an existing .m3u file by joining multiple
+    source URLs for the same channel with '#' so players treat them as backups.
+    """
+    try:
+        if not os.path.exists(m3u_path):
+            return
+        with open(m3u_path, "r", encoding="utf-8") as f:
+            lines = [ln.rstrip("\n") for ln in f.readlines()]
+
+        header_lines = []
+        entries = []  # list of (extinf_line, [opt_lines], url)
+        i = 0
+        # preserve any leading non-entry lines (e.g., #EXTM3U)
+        while i < len(lines):
+            line = lines[i]
+            if line.strip().startswith("#EXTINF"):
+                break
+            header_lines.append(line)
+            i += 1
+
+        while i < len(lines):
+            line = lines[i]
+            if not line.strip():
+                i += 1
+                continue
+            if line.startswith("#EXTINF"):
+                extinf = line
+                i += 1
+                opt_lines = []
+                # collect following option lines like #EXTVLCOPT
+                while i < len(lines) and lines[i].startswith("#") and not lines[i].startswith("#EXTINF"):
+                    # stop if next is an EXTINF (start of next entry)
+                    # keep option lines (e.g., #EXTVLCOPT:...)
+                    opt_lines.append(lines[i])
+                    i += 1
+                # next non-empty non-comment line is URL
+                url = ""
+                while i < len(lines) and not lines[i].strip():
+                    i += 1
+                if i < len(lines):
+                    url = lines[i].strip()
+                    i += 1
+                entries.append((extinf, opt_lines, url))
+            else:
+                i += 1
+
+        # group by channel name (text after last comma in extinf)
+        grouped = {}
+        order = []
+        for extinf, opt_lines, url in entries:
+            # channel name is the part after last comma
+            _, _, name = extinf.rpartition(',')
+            name = name.strip()
+            if name not in grouped:
+                grouped[name] = {"extinf": extinf, "opts": opt_lines, "urls": []}
+                order.append(name)
+            if url:
+                grouped[name]["urls"].append(url)
+
+        # rebuild content
+        out_lines = []
+        out_lines.extend(header_lines)
+        for name in order:
+            item = grouped[name]
+            out_lines.append(item["extinf"])
+            # write option lines from the first occurrence
+            for opt in item["opts"]:
+                out_lines.append(opt)
+            # join urls with '#'
+            combined = "#".join(item["urls"]) if item["urls"] else ""
+            if combined:
+                out_lines.append(combined)
+        # write back
+        with open(m3u_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(out_lines) + ("\n" if out_lines and not out_lines[-1].endswith("\n") else ""))
+    except Exception:
+        # fail silently to avoid breaking generation
+        return
 
 
 def get_result_file_content(path=None, show_content=False, file_type=None):

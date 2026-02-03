@@ -1,0 +1,3 @@
+#EXTM3U
+#EXTINF:-1 tvg-name="CCTV-1" tvg-logo="http://192.168.100.1/logo/CCTV-1.png" group-title="📺央视频道",CCTV-1
+http://23.237.228.134/live5/CCTV1.m3u8#http://112.27.235.94:8000/hls/1/index.m3u8

@@ -35,6 +35,7 @@ from utils.tools import (
     get_url_host,
     check_ipv_type_match,
     convert_to_m3u,
+    merge_m3u_duplicate_channels,
     custom_print,
     get_name_uri_from_dir,
     get_resolution_value,
@@ -742,6 +743,11 @@ def process_write_content(
             return
     try:
         convert_to_m3u(path, first_channel_name, data=result_data)
+        try:
+            m3u_path = os.path.splitext(path)[0] + ".m3u"
+            merge_m3u_duplicate_channels(m3u_path)
+        except Exception:
+            pass
     except Exception:
         pass
 
