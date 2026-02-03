@@ -161,6 +161,9 @@ iptv-api/                  # 项目根目录
     └── ipv4               # IPv4结果目录
     └── ipv6               # IPv6结果目录
     └── result.m3u/txt     # m3u/txt结果
+    
+  Note: `result.m3u` will now merge duplicate channel entries by joining multiple
+  source URLs for the same channel with `#` so compatible players treat them as backup sources.
     └── hls.m3u/txt        # RTMP hls推流结果
     └── log                # 日志文件目录
         └── result.log     # 有效结果日志
